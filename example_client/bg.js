@@ -8,7 +8,9 @@ function test_game() {
 
     var state = STATE_IDLE
 
-    var ws = new WebSocket('ws://jstorrent.com:12345/echo');
+    var host = '127.0.0.1:12345/echo';
+
+    var ws = new WebSocket('ws://' + host);
     function onwsevent(evt, cb) {
 	if (evt.data) {
 	    var fr = new FileReader

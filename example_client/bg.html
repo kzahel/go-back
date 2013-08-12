@@ -70,7 +70,8 @@
      if (d.getElementById(id)) {return;}
      js = d.createElement(s); js.id = id;
 //     js.src = "//connect.facebook.net/en_US/all.js";
-     js.src = "//connect.facebook.net/en_US/all/debug.js";
+//     js.src = "//connect.facebook.net/en_US/all/debug.js";
+     js.src = "https://connect.facebook.net/en_US/all/debug.js"; // loading this page from file://
      fjs.parentNode.insertBefore(js, fjs);
    }(document, 'script', 'facebook-jssdk'));
 </script>

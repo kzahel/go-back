@@ -1,21 +1,21 @@
 package main
 
-import(
+import (
+	"code.google.com/p/go-uuid/uuid"
+	"code.google.com/p/go.net/websocket"
 	"database/sql"
+	"encoding/json"
 	_ "github.com/mattn/go-sqlite3"
+	"io"
 	"log"
-"code.google.com/p/go.net/websocket"
-"io"
-"net/http"
-"encoding/json"
-"code.google.com/p/go-uuid/uuid"
+	"net/http"
+	"os"
 )
-
 
 // Echo the data received on the Web Socket.
 func EchoServer(ws *websocket.Conn) {
 	log.Printf("echo server init")
-	io.Copy(ws, ws);
+	io.Copy(ws, ws)
 }
 
 func decodeMessage(buf []byte) interface{} {
@@ -23,69 +23,65 @@ func decodeMessage(buf []byte) interface{} {
 	json.Unmarshal(buf, &m)
 
 	msg := m.(map[string]interface{})
-	for k,v := range msg {
+	for k, v := range msg {
 		switch vv := v.(type) {
 		case string:
-			log.Println("got json key string",k,vv);
+			log.Println("got json key string", k, vv)
 
 		default:
-			log.Println("not handling this json thing");
+			log.Println("not handling this json thing")
 		}
-		
+
 	}
 
-	log.Println("received ws message %q", buf, msg);
+	log.Println("received ws message %q", buf, msg)
 
-	return m;
+	return m
 }
-
 
 type GameState struct {
 	MasterPlayer string
-	SlavePlayer string
-	Started bool
+	SlavePlayer  string
+	Started      bool
 	MasterStream *websocket.Conn
-	SlaveStream *websocket.Conn
+	SlaveStream  *websocket.Conn
 }
-
-
-
 
 var AllGames = make(map[string]GameState)
 
 func GameServer(ws *websocket.Conn) {
-	authenticated := false;
+	authenticated := false
 
-	log.Printf("have websocket conn", ws);
+	log.Printf("have websocket conn", ws)
 
 	for {
 		var buf []byte
 		err := websocket.Message.Receive(ws, &buf)
-		if (err != nil) {
-			log.Println("websocket receieve error", err);
-			break;
+		if err != nil {
+			log.Println("websocket receieve error", err)
+			break
 		}
 
 		type GameCommand struct {
 			Command string
-			Data string
-			Invite string
+			Data    string
+			Invite  string
 		}
 		var request GameCommand
-		json.Unmarshal(buf, &request);
+		json.Unmarshal(buf, &request)
 
 		log.Println("websocket message", buf)
 
-		if (request.Command != "Authenticate" && ! authenticated) {
+		if request.Command != "Authenticate" && !authenticated {
 			websocket.Message.Send(ws, "authenticate please")
-			break;
+			break
 		}
 
-		if (request.Command == "NewGame") {
+		if request.Command == "NewGame" {
 
-			if (request.Invite == "") {
+			if request.Invite == "" {
 				websocket.Message.Send(ws, "need invitee")
-				break;
+				break
 			}
 
 			var s = GameState{}
@@ -97,41 +93,40 @@ func GameServer(ws *websocket.Conn) {
 			r := Response{roomid}
 
 			AllGames[roomid] = s
-			s.MasterStream = ws;
-			s.Started = false;
+			s.MasterStream = ws
+			s.Started = false
 
 			b, _ := json.Marshal(r)
 			websocket.Message.Send(ws, b)
-		} else if (request.Command == "JoinGame") {
-
+		} else if request.Command == "JoinGame" {
 			val, ok := AllGames[request.Data]
-
-			log.Println("join game, ok", ok,val)
-		} else if (request.Command == "Authenticate") {
+			log.Println("join game, ok", ok, val)
+		} else if request.Command == "Authenticate" {
 			websocket.Message.Send(ws, "thanks!")
-			authenticated = true;
+			authenticated = true
 		} else {
 			websocket.Message.Send(ws, "what?")
 		}
-		
 
 	}
 
 }
 
 func servewebsocket() {
-	log.Printf("serve websocket")
-	http.Handle("/echo", websocket.Handler(GameServer));
-	err := http.ListenAndServe(":12345", nil);
+	cwd, _ := os.Getwd()
+	//http.Handle("/static", http.FileServer(http.Dir(cwd))) // not sure why, but this does not work!
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(cwd))))
+	http.Handle("/echo", websocket.Handler(GameServer))
+	err := http.ListenAndServe(":12345", nil)
+	log.Printf("listening!")
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }
 
-
 func main() {
 	db, err := sql.Open("sqlite3", "backgammon.sqlite")
-	if (err != nil) {
+	if err != nil {
 		log.Fatal("error opening sqlite %v", err)
 	}
 
@@ -144,7 +139,7 @@ func main() {
 		return
 	}
 	defer rows.Close()
-	log.Printf("la la la la")	
+	log.Printf("la la la la")
 	for rows.Next() {
 		var id int
 		var fbid string
@@ -154,7 +149,6 @@ func main() {
 	}
 	log.Printf("all rows done!")
 	rows.Close()
-
 
 	servewebsocket()
 }
