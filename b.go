@@ -130,7 +130,7 @@ func servewebsocket() {
 
 
 func main() {
-	db, err := sql.Open("sqlite3", "/home/ubuntu/backgammon.sqlite")
+	db, err := sql.Open("sqlite3", "backgammon.sqlite")
 	if (err != nil) {
 		log.Fatal("error opening sqlite %v", err)
 	}
