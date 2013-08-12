@@ -40,6 +40,7 @@ function test_game() {
 	    console.log('msg from server',data);
 	})
     }
+    window.ws = ws;
 }
 
 

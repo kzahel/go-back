@@ -5,6 +5,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"io"
 	"log"
@@ -48,9 +49,14 @@ type GameState struct {
 }
 
 var AllGames = make(map[string]GameState)
+var AllWebSockets = make(map[string]bool)
 
 func GameServer(ws *websocket.Conn) {
+	wsptrstr := fmt.Sprintf("%p", ws)
+
+	AllWebSockets[wsptrstr] = true
 	authenticated := false
+	var authed_fbid string
 
 	log.Printf("have websocket conn", ws)
 
@@ -93,6 +99,7 @@ func GameServer(ws *websocket.Conn) {
 			r := Response{roomid}
 
 			AllGames[roomid] = s
+			s.MasterPlayer = authed_fbid
 			s.MasterStream = ws
 			s.Started = false
 
@@ -103,6 +110,7 @@ func GameServer(ws *websocket.Conn) {
 			log.Println("join game, ok", ok, val)
 		} else if request.Command == "Authenticate" {
 			websocket.Message.Send(ws, "thanks!")
+			authed_fbid = request.Data
 			authenticated = true
 		} else {
 			websocket.Message.Send(ws, "what?")
@@ -110,12 +118,42 @@ func GameServer(ws *websocket.Conn) {
 
 	}
 
+	delete(AllWebSockets, wsptrstr)
+
+}
+
+type DebugHandler struct{}
+
+func (m DebugHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	//for k,v := range AllGames {
+
+	//w.Write("thanks!")
+
+	fmt.Fprintf(w, "allwebsockets:!!\n")
+
+	b2, err := json.Marshal(AllWebSockets)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+	} else {
+		w.Write(b2)
+	}
+
+	fmt.Fprintf(w, "\nallgames!!\n")
+
+	b, _ := json.Marshal(AllGames)
+	w.Write(b)
+
+	//}
+	//fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
 }
 
 func servewebsocket() {
 	cwd, _ := os.Getwd()
 	//http.Handle("/static", http.FileServer(http.Dir(cwd))) // not sure why, but this does not work!
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(cwd))))
+	var mh = DebugHandler{}
+	http.Handle("/debug/", mh)
 	http.Handle("/echo", websocket.Handler(GameServer))
 	err := http.ListenAndServe(":12345", nil)
 	log.Printf("listening!")
